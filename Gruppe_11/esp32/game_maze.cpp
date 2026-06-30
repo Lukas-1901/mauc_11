@@ -1,57 +1,45 @@
 #include "game_maze.h"
 #include "config.h"
 #include "mqtt_manager.h"
-#include "physics.h"        // gemeinsames Physik-Grundgeruest
-#include "game_state.h"     // gemeinsame Punkte-/Zeit-/Spielerlogik
+#include "physics.h"
+#include "game_state.h"
 #include <math.h>
 
-// ===========================================================================
-//  KONSTANTEN
-//  Physik-Tuning (ACC_GAIN, FRICTION, ACC_LPF, SIGN_*, SWAP_XY) liegt jetzt
-//  ZENTRAL in physics.h und wird von beiden Spielen genutzt.
-// ===========================================================================
+static const uint16_t COL_BG     = 0x0000;
+static const uint16_t COL_WALL   = 0xFFFF;
+static const uint16_t COL_BALL   = 0xF800;
+static const uint16_t COL_COOKIE = 0xFFE0;
+static const uint16_t COL_TEXT   = 0xFFFF;
 
-// --- Farben als rohe RGB565-Werte ---
-static const uint16_t COL_BG     = 0x0000; // schwarz
-static const uint16_t COL_WALL   = 0xFFFF; // weiss
-static const uint16_t COL_BALL   = 0xF800; // rot
-static const uint16_t COL_COOKIE = 0xFFE0; // gelb
-static const uint16_t COL_TEXT   = 0xFFFF; // weiss
+static const int   R              = (int)Config::BALL_RAD;
+static const int   COOKIE_R       = 3;
+static const int   CORRIDOR_EXTRA = 4; // Luft im Korridor über den Kugeldurchmesser hinaus
+static const float MAX_SUBSTEP    = (float)R; // Anti-Tunneling: max. Bewegung pro Teilschritt
 
-// --- Geometrie ---
-static const int   R             = (int)Config::BALL_RAD; // Kugelradius
-static const int   COOKIE_R      = 3;                     // Keks-Radius
-static const int   CORRIDOR_EXTRA= 4;                     // Luft zus. zum Kugeldurchmesser
-static const float MAX_SUBSTEP   = (float)R;              // Anti-Tunneling: max. Schritt/Subschritt
-
-// --- Statische Felder dimensionieren (kein dynamischer Speicher) ---
 static const int MAX_COLS    = 18;
 static const int MAX_ROWS    = 22;
 static const int MAX_COOKIES = 64;
 
-// --- Wand-Bits pro Zelle ---
-static const uint8_t WALL_N = 0x01;  // oben
-static const uint8_t WALL_E = 0x02;  // rechts
-static const uint8_t WALL_S = 0x04;  // unten
-static const uint8_t WALL_W = 0x08;  // links
-static const uint8_t VISITED= 0x10;  // Hilfsbit fuer DFS
+// Wand-Bits pro Zelle
+static const uint8_t WALL_N = 0x01;
+static const uint8_t WALL_E = 0x02;
+static const uint8_t WALL_S = 0x04;
+static const uint8_t WALL_W = 0x08;
+static const uint8_t VISITED = 0x10;
 
-// ===========================================================================
-//  ZUSTAND
-// ===========================================================================
 static Arduino_GFX* s_gfx = nullptr;
 
-static uint8_t  s_maze[MAX_ROWS][MAX_COLS];     // Wand-Bits je Zelle
-static uint16_t s_stack[MAX_ROWS * MAX_COLS];   // expliziter DFS-Stack
+static uint8_t  s_maze[MAX_ROWS][MAX_COLS];
+static uint16_t s_stack[MAX_ROWS * MAX_COLS]; // expliziter DFS-Stack
 
-static int s_cols, s_rows;        // Grid-Groesse
-static int s_cell, s_wall;        // Zellenpitch / Wandstaerke in px
-static int s_originX, s_originY;  // Labyrinth-Ursprung (zentriert)
+static int s_cols, s_rows;
+static int s_cell, s_wall;
+static int s_originX, s_originY;
 
-static Physics::Ball    s_ball;   // Position/Geschwindigkeit/Filter (gemeinsam)
-static GameState::State s_state;  // Punkte/Zeit/Spieler/finished (gemeinsam)
+static Physics::Ball    s_ball;
+static GameState::State s_state;
 
-static float s_prevX, s_prevY;    // letzte gezeichnete Position (zum Loeschen)
+static float s_prevX, s_prevY;
 
 struct Cookie { int cx, cy; bool active; };
 static Cookie s_cookies[MAX_COOKIES];
@@ -59,11 +47,8 @@ static int    s_cookieCount;
 
 static bool s_endShown;
 static bool s_firstRender;
-static bool s_forceRedraw;        // erzwingt 1x Neuzeichnen (z.B. nach Keks-Fund)
+static bool s_forceRedraw;
 
-// ===========================================================================
-//  HILFSFUNKTIONEN
-// ===========================================================================
 static inline int cellPX(int cx) { return s_originX + cx * s_cell; }
 static inline int cellPY(int cy) { return s_originY + cy * s_cell; }
 static inline int cookieCenterX(int cx) { return cellPX(cx) + s_cell / 2; }
@@ -73,20 +58,16 @@ static void publishEvent(const char* json) {
   mqtt::mqttPublish(Config::PUB_EVENT, json);
 }
 
-// Kreis (Mittelpunkt cx/cy, Radius R) gegen achsenparalleles Rechteck.
+// Nächster Punkt auf dem Rechteck -> Kreis-Rechteck-Kollision
 static bool circleRect(float cxp, float cyp, int rx, int ry, int rw, int rh) {
-  float nx = cxp < rx ? rx : (cxp > rx + rw ? rx + rw : cxp); // naechster Punkt
-  float ny = cyp < ry ? ry : (cyp > ry + rh ? ry + rh : cyp); // auf dem Rechteck
+  float nx = cxp < rx ? rx : (cxp > rx + rw ? rx + rw : cxp);
+  float ny = cyp < ry ? ry : (cyp > ry + rh ? ry + rh : cyp);
   float dx = cxp - nx, dy = cyp - ny;
   return (dx * dx + dy * dy) < (float)R * R;
 }
 
-// ===========================================================================
-//  1) GEOMETRIE: Grid an Wandstaerke anpassen
-// ===========================================================================
 static void computeGeometry(uint8_t wallThickness) {
   s_wall = constrain((int)wallThickness, 2, 12);
-  // Korridor-Innenbreite = CELL - 2*WALL. Muss > Kugeldurchmesser (2*R) sein:
   s_cell = 2 * s_wall + 2 * R + CORRIDOR_EXTRA;
 
   int W = s_gfx->width();
@@ -96,13 +77,11 @@ static void computeGeometry(uint8_t wallThickness) {
 
   int usedW = s_cols * s_cell;
   int usedH = s_rows * s_cell;
-  s_originX = (W - usedW) / 2;   // zentrieren
+  s_originX = (W - usedW) / 2;
   s_originY = (H - usedH) / 2;
 }
 
-// ===========================================================================
-//  2) LABYRINTH-GENERIERUNG: rekursive Tiefensuche (iterativ, mit Backtracking)
-// ===========================================================================
+// Iterativer DFS mit Backtracking – erzeugt ein perfektes Labyrinth
 static void generateMaze() {
   for (int cy = 0; cy < s_rows; cy++)
     for (int cx = 0; cx < s_cols; cx++)
@@ -110,7 +89,7 @@ static void generateMaze() {
 
   int top = 0;
   s_maze[0][0] |= VISITED;
-  s_stack[top++] = 0;                 // Startzelle (0,0), kodiert als cy*cols+cx
+  s_stack[top++] = 0;
 
   while (top > 0) {
     uint16_t c = s_stack[top - 1];
@@ -118,12 +97,12 @@ static void generateMaze() {
     int cy = c / s_cols;
 
     int nx[4], ny[4], dir[4], n = 0;
-    if (cy > 0          && !(s_maze[cy - 1][cx] & VISITED)) { nx[n]=cx; ny[n]=cy-1; dir[n]=0; n++; } // N
-    if (cx < s_cols - 1 && !(s_maze[cy][cx + 1] & VISITED)) { nx[n]=cx+1; ny[n]=cy; dir[n]=1; n++; } // E
-    if (cy < s_rows - 1 && !(s_maze[cy + 1][cx] & VISITED)) { nx[n]=cx; ny[n]=cy+1; dir[n]=2; n++; } // S
-    if (cx > 0          && !(s_maze[cy][cx - 1] & VISITED)) { nx[n]=cx-1; ny[n]=cy; dir[n]=3; n++; } // W
+    if (cy > 0          && !(s_maze[cy - 1][cx] & VISITED)) { nx[n]=cx;   ny[n]=cy-1; dir[n]=0; n++; }
+    if (cx < s_cols - 1 && !(s_maze[cy][cx + 1] & VISITED)) { nx[n]=cx+1; ny[n]=cy;   dir[n]=1; n++; }
+    if (cy < s_rows - 1 && !(s_maze[cy + 1][cx] & VISITED)) { nx[n]=cx;   ny[n]=cy+1; dir[n]=2; n++; }
+    if (cx > 0          && !(s_maze[cy][cx - 1] & VISITED)) { nx[n]=cx-1; ny[n]=cy;   dir[n]=3; n++; }
 
-    if (n == 0) { top--; continue; } // Sackgasse -> Backtracking (pop)
+    if (n == 0) { top--; continue; } // Sackgasse, zurück
 
     int k = random(n);
     int wx = nx[k], wy = ny[k];
@@ -139,37 +118,27 @@ static void generateMaze() {
   }
 }
 
-// ===========================================================================
-//  3) KEKSE PLATZIEREN
-// ===========================================================================
 static void placeCookies(uint16_t count) {
-  int maxC = min(MAX_COOKIES, s_cols * s_rows - 1); // -1: Startzelle frei lassen
+  int maxC = min(MAX_COOKIES, s_cols * s_rows - 1); // Startzelle freilassen
   s_cookieCount = constrain((int)count, 1, maxC);
 
   int placed = 0;
   while (placed < s_cookieCount) {
     int cx = random(s_cols);
     int cy = random(s_rows);
-    if (cx == 0 && cy == 0) continue;             // nicht auf Startzelle
+    if (cx == 0 && cy == 0) continue;
 
     bool dup = false;
     for (int j = 0; j < placed; j++)
       if (s_cookies[j].cx == cx && s_cookies[j].cy == cy) { dup = true; break; }
     if (dup) continue;
 
-    s_cookies[placed].cx = cx;
-    s_cookies[placed].cy = cy;
-    s_cookies[placed].active = true;
-    placed++;
+    s_cookies[placed++] = { cx, cy, true };
   }
-  // tatsaechliche Anzahl in den gemeinsamen Spielzustand uebernehmen
   s_state.cookiesTotal = s_cookieCount;
   s_state.cookiesLeft  = s_cookieCount;
 }
 
-// ===========================================================================
-//  ZEICHENROUTINEN
-// ===========================================================================
 static void drawCellWalls(int cx, int cy, uint16_t color) {
   uint8_t w = s_maze[cy][cx];
   int px = cellPX(cx), py = cellPY(cy);
@@ -228,16 +197,11 @@ static void showEndScreen() {
   s_gfx->print("Punkte: "); s_gfx->print(s_state.score);
 }
 
-// ===========================================================================
-//  4) KOLLISION: Kugel gegen die Waende der Nachbarzellen
-// ===========================================================================
 static bool collides(float fx, float fy) {
-  int cxMin = (int)floorf((fx - R - s_originX) / s_cell);
-  int cxMax = (int)floorf((fx + R - s_originX) / s_cell);
-  int cyMin = (int)floorf((fy - R - s_originY) / s_cell);
-  int cyMax = (int)floorf((fy + R - s_originY) / s_cell);
-  cxMin = max(0, cxMin); cxMax = min(s_cols - 1, cxMax);
-  cyMin = max(0, cyMin); cyMax = min(s_rows - 1, cyMax);
+  int cxMin = max(0, (int)floorf((fx - R - s_originX) / s_cell));
+  int cxMax = min(s_cols - 1, (int)floorf((fx + R - s_originX) / s_cell));
+  int cyMin = max(0, (int)floorf((fy - R - s_originY) / s_cell));
+  int cyMax = min(s_rows - 1, (int)floorf((fy + R - s_originY) / s_cell));
 
   for (int cy = cyMin; cy <= cyMax; cy++) {
     for (int cx = cxMin; cx <= cxMax; cx++) {
@@ -252,9 +216,6 @@ static bool collides(float fx, float fy) {
   return false;
 }
 
-// ===========================================================================
-//  OEFFENTLICHE API
-// ===========================================================================
 void gameMazeInit(Arduino_GFX* gfx, uint8_t wallThickness,
                   uint16_t cookieCount, const char* playerName) {
   s_gfx = gfx;
@@ -263,13 +224,12 @@ void gameMazeInit(Arduino_GFX* gfx, uint8_t wallThickness,
   computeGeometry(wallThickness);
   generateMaze();
 
-  // Kugel in der Mitte der Startzelle (0,0) -- gemeinsames Physik-Grundgeruest
   float startX = cellPX(0) + s_cell / 2.0f;
   float startY = cellPY(0) + s_cell / 2.0f;
   Physics::resetBall(s_ball, startX, startY);
 
   GameState::reset(s_state, playerName, cookieCount);
-  placeCookies(cookieCount);   // setzt cookiesTotal/Left auf die echte Anzahl
+  placeCookies(cookieCount);
 
   s_prevX = s_ball.x; s_prevY = s_ball.y;
   s_endShown    = false;
@@ -287,11 +247,10 @@ void gameMazeUpdate(float accX, float accY, uint32_t dtMs) {
   if (s_state.finished || dtMs == 0) return;
   float dt = dtMs / 1000.0f;
 
-  // --- Gemeinsame Physik: Tiefpass + v += a*dt + Reibung -> Verschiebung dx,dy ---
   float dx, dy;
   Physics::step(s_ball, accX, accY, dt, dx, dy);
 
-  // --- Bewegung mit Sub-Stepping (Anti-Tunneling) + achsen-getrennte Kollision ---
+  // Sub-Stepping damit die Kugel nicht durch dünne Wände tunnelt
   int steps = (int)ceilf(max(fabsf(dx), fabsf(dy)) / MAX_SUBSTEP);
   if (steps < 1) steps = 1;
   float sx = dx / steps;
@@ -304,7 +263,7 @@ void gameMazeUpdate(float accX, float accY, uint32_t dtMs) {
     if (collides(s_ball.x, ny)) { s_ball.vy = 0; sy = 0; } else { s_ball.y = ny; }
   }
 
-  // Sicherheits-Clamp ins Labyrinth
+  // Sicherheits-Clamp falls die Kugel irgendwie außerhalb landet
   float minX = s_originX + s_wall + R;
   float maxX = s_originX + s_cols * s_cell - s_wall - R;
   float minY = s_originY + s_wall + R;
@@ -312,7 +271,6 @@ void gameMazeUpdate(float accX, float accY, uint32_t dtMs) {
   s_ball.x = constrain(s_ball.x, minX, maxX);
   s_ball.y = constrain(s_ball.y, minY, maxY);
 
-  // --- Kekse einsammeln ---
   bool wasFinished = s_state.finished;
   for (int i = 0; i < s_cookieCount; i++) {
     if (!s_cookies[i].active) continue;
@@ -322,7 +280,7 @@ void gameMazeUpdate(float accX, float accY, uint32_t dtMs) {
     float rr = (float)(R + COOKIE_R);
     if (ddx * ddx + ddy * ddy < rr * rr) {
       s_cookies[i].active = false;
-      GameState::collect(s_state);   // score++, left--, setzt finished bei 0
+      GameState::collect(s_state);
       s_forceRedraw = true;
       char buf[64];
       snprintf(buf, sizeof(buf),
@@ -332,7 +290,6 @@ void gameMazeUpdate(float accX, float accY, uint32_t dtMs) {
     }
   }
 
-  // --- Spielende (Uebergang nach finished) ---
   if (!wasFinished && s_state.finished) {
     char buf[80];
     snprintf(buf, sizeof(buf),
@@ -358,14 +315,14 @@ void gameMazeRender() {
     return;
   }
 
-  // FLACKER-SCHUTZ: nur neu zeichnen, wenn sich die Pixelposition aendert
+  // kein Flackern wenn Pixelposition gleich geblieben
   if (!s_forceRedraw &&
       (int)s_ball.x == (int)s_prevX && (int)s_ball.y == (int)s_prevY) {
     return;
   }
   s_forceRedraw = false;
 
-  // Partielles Update: alte Kugel loeschen, Umgebung wiederherstellen, neu zeichnen
+  // partielles Update: alten Kreis löschen, Wände + Kekse lokal neu zeichnen
   int half = R + COOKIE_R + 1;
   int ex = (int)s_prevX - half;
   int ey = (int)s_prevY - half;
@@ -388,6 +345,7 @@ bool     gameMazeFinished()    { return s_state.finished; }
 uint16_t gameMazeScore()       { return (uint16_t)s_state.score; }
 uint16_t gameMazeCookiesLeft() { return (uint16_t)max(0, s_state.cookiesLeft); }
 uint32_t gameMazeElapsedMs()   { return GameState::elapsedMs(s_state); }
+void gameMazeSetPlayer(const char* p) { GameState::setPlayer(s_state, p); }
 
 void gameMazeBuildStateJson(char* buf, size_t len) {
   GameState::buildJson(s_state, "maze", buf, len);

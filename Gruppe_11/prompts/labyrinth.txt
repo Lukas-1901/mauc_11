@@ -1,15 +1,14 @@
-Schreibe ein C++ Modul (game_maze.h und game_maze.cpp) für einen ESP32 im Arduino-Framework, das ein Labyrinth mittels rekursiver Tiefensuche (Depth-First Search) generiert.
+Schreibe ein C++ Modul (game_maze.h und game_maze.cpp) für einen ESP32 im Arduino-Framework, das ein Labyrinth mittels rekursiver Tiefensuche generiert.
 
 Anforderungen:
 
-Das Grid muss zur Laufzeit dynamisch initialisiert werden können, basierend auf der Zellengröße sowie der Bildschirmbreite (240) und -höhe (280).
+- Das Grid muss zur Laufzeit dynamisch initialisiert werden können, basierend auf der Zellengröße sowie der Bildschirmbreite (240) und -höhe (280).
+- Verwende aus Speichergründen ein 1D-Array (uint8_t), das logisch auf ein 2D-Grid abgebildet wird (mit einer internen Hilfsfunktion getIndex(x, y)).
 
-Verwende aus Speichergründen ein 1D-Array (uint8_t), das logisch auf ein 2D-Grid abgebildet wird (mit einer internen Hilfsfunktion getIndex(x, y)).
+- Speichere die Wände (Nord, Ost, Süd, West) und den Besucht-Status als Bitmasken in dem uint8_t Array. Alle Zellen starten mit 4 Wänden.
 
-Speichere die Wände (Nord, Ost, Süd, West) und den Besucht-Status als Bitmasken in dem uint8_t Array. Alle Zellen starten mit 4 Wänden.
+- Implementiere eine init(...) Funktion zur dynamischen Speicherallokation, eine cleanup() Funktion zur Freigabe und eine generate() Funktion, die das Array per DFS  durchläuft und die Wände zwischen den Zellen entsprechend der Bitmasken einreißt.
 
-Implementiere eine init(...) Funktion zur dynamischen Speicherallokation, eine cleanup() Funktion zur Freigabe und eine generate() Funktion, die das Array per DFS durchläuft und die Wände zwischen den Zellen entsprechend der Bitmasken einreißt.
+- Achte darauf, die Nachbarzellen in der DFS in zufälliger Reihenfolge zu besuchen.
 
-Achte darauf, die Nachbarzellen in der DFS in zufälliger Reihenfolge zu besuchen.
-
-Stelle eine getCell(x, y) Funktion sowie Getter für die Grid-Dimensionen zur Verfügung.
+- Stelle eine getCell(x, y) Funktion sowie Getter für die Grid-Dimensionen zur Verfügung.

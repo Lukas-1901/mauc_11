@@ -1,20 +1,20 @@
 
 //---- WiFi settings
 
-//static const char* ssid = "IoT";
-//static const char* password = "PTh976NfN3";
+static const char* ssid = "IoT";
+static const char* password = "PTh976NfN3";
 
 //static const char* ssid = "ki-lokal";
 //static const char* password = "dc-ki-2022+";
 
-static const char* ssid = "Vodafone-3B04";
-static const char* password = "190106Admin!";
+//static const char* ssid = "";
+//static const char* password = "";
 
 
 //---- HiveMQ Cloud Broker settings
-static const char* mqtt_server = "c4358427bff54efe9ba9bcc87d16ab49.s1.eu.hivemq.cloud";
-static const char* mqtt_username = "hiveMine";
-static const char* mqtt_password = "adminHiveMine1";
+static const char* mqtt_server = "URL.s1.eu.hivemq.cloud";
+static const char* mqtt_username = "-";
+static const char* mqtt_password = "-";
 static const int mqtt_port = 8883;
 
 // HiveMQ Cloud Let's Encrypt CA certificate (hardcoded)

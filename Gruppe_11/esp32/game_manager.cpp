@@ -88,6 +88,8 @@ void handleControl(const char* topic, const String& msg) {
   } else if (!strcmp(topic, Config::SUB_SPIELER)) {
     strncpy(s_spieler, msg.c_str(), sizeof(s_spieler) - 1);
     s_spieler[sizeof(s_spieler) - 1] = '\0';
+    if (s_state == GState::RUNNING_MAZE)  gameMazeSetPlayer(s_spieler);
+    if (s_state == GState::RUNNING_FIELD) gameFieldSetPlayer(s_spieler);
   } else if (!strcmp(topic, Config::SUB_SPIEL)) {
     int sel = msg.toInt();
     if (sel == 1 || sel == 2) s_selected = sel;

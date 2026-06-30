@@ -1,10 +1,7 @@
 #pragma once
 #include <Arduino.h>
 
-// ===========================================================================
-//  Gemeinsame Punkte-/Zeit-/Spieler-Logik fuer beide Spiele.
-//  (Spiel 1 kann in Phase 5 ebenfalls hierauf umgestellt werden.)
-// ===========================================================================
+// Gemeinsame Punkte-/Zeit-/Spieler-Logik für beide Spiele
 namespace GameState {
 
   struct State {
@@ -28,11 +25,15 @@ namespace GameState {
 
   inline uint32_t elapsedMs(const State& s) { return millis() - s.startMs; }
 
-  // Einen Keks gutschreiben; setzt finished, sobald alle gesammelt sind.
   inline void collect(State& s) {
     s.score++;
     s.cookiesLeft--;
     if (s.cookiesLeft <= 0) s.finished = true;
+  }
+
+  inline void setPlayer(State& s, const char* player) {
+    strncpy(s.player, player ? player : "", sizeof(s.player) - 1);
+    s.player[sizeof(s.player) - 1] = '\0';
   }
 
   inline void buildJson(const State& s, const char* game, char* buf, size_t n) {

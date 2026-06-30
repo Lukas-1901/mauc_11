@@ -15,5 +15,6 @@ bool     gameMazeFinished();
 uint16_t gameMazeScore();
 uint16_t gameMazeCookiesLeft();
 uint32_t gameMazeElapsedMs();
+void gameMazeSetPlayer(const char* p);
 
 void gameMazeBuildStateJson(char* buf, size_t len);
