@@ -3,9 +3,9 @@
 
 namespace wifimgr {
 
-void   WifiBegin();        // einmal in setup()
-void   WifiLoop();         // jeden Durchlauf in loop() — non-blocking
+void   WifiBegin();
+void   WifiLoop();
 bool   WifiIsConnected();
-String WifiIp();           // "0.0.0.0" wenn nicht verbunden
+String WifiIp();
 
-} // namespace wifimgr
+}

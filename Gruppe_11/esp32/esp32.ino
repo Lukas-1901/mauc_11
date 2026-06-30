@@ -1,7 +1,12 @@
+// ===========================================================================
+//  MAUC-Projektarbeit Gruppe 11 -- Hauptsketch (Phase 5: zusammengefuehrt)
+//  Display + QMI8658-IMU + WLAN + MQTT + State Machine (Menue/Spiel 1/Spiel 2)
+//  pin_config.h aus dem Waveshare-Beispiel muss im esp32/-Ordner liegen!
+// ===========================================================================
 #include "config.h"
 #include "wifi_manager.h"
 #include "mqtt_manager.h"
-#include "game_maze.h"
+#include "game_manager.h"
 
 #include <Arduino_GFX_Library.h>
 #include "pin_config.h"
@@ -9,21 +14,14 @@
 #include "SensorQMI8658.hpp"
 #include <time.h>
 
-unsigned long lastTestPublish = 0;
-
-HWCDC USBSerial;
+// ===== Display =============================================================
 Arduino_DataBus *bus = new Arduino_ESP32SPI(LCD_DC, LCD_CS, LCD_SCK, LCD_MOSI);
-Arduino_GFX *gfx = new Arduino_ST7789(bus, LCD_RST /* RST */, 0 /* rotation */, true /* IPS */, LCD_WIDTH, LCD_HEIGHT, 0, 20, 0, 0);
+Arduino_GFX     *gfx = new Arduino_ST7789(bus, LCD_RST, 0, true,
+                                          LCD_WIDTH, LCD_HEIGHT, 0, 20, 0, 0);
 
-static uint8_t g_wand = (uint8_t)Config::WAND_BREITE_STD;
-static uint16_t g_kekse = 5;
-static char g_spieler[24] = "Spieler";
-static uint32_t g_lastStatus = 0;
-static float g_ax = 0.0f, g_ay = 0.0f;
-static bool g_running = false; 
-
+// ===== IMU =================================================================
 static SensorQMI8658 qmi;
-static IMUdata s_acc;
+static IMUdata       s_acc;
 
 static void imuSetup() {
   if (!qmi.begin(Wire, QMI8658_L_SLAVE_ADDRESS, IIC_SDA, IIC_SCL)) {
@@ -37,35 +35,26 @@ static void imuSetup() {
   Serial.printf("[IMU] QMI8658 ok, ChipID=0x%X\n", qmi.getChipID());
 }
 
-
 void imuReadAccelG(float& ax, float& ay) {
-  if (qmi.getDataReady()) {
-    qmi.getAccelerometer(s_acc.x, s_acc.y, s_acc.z);
-  }
-  ax = s_acc.x;
+  if (qmi.getDataReady()) qmi.getAccelerometer(s_acc.x, s_acc.y, s_acc.z);
+  ax = s_acc.x;   // Achsen-/Vorzeichen-Kalibrierung in physics.h / game_maze.cpp
   ay = s_acc.y;
 }
 
+// ===== MQTT-Eingang an die State Machine ===================================
+static float    g_ax = 0, g_ay = 0;
+static uint32_t g_lastStatus = 0;
+
 static void onMqtt(const char* topic, const String& payload) {
-  if (!strcmp(topic, Config::SUB_WAND)) g_wand  = payload.toInt();
-  else if (!strcmp(topic, Config::SUB_KEKSE)) g_kekse = payload.toInt();
-  else if (!strcmp(topic, Config::SUB_SPIELER)) {
-    strncpy(g_spieler, payload.c_str(), 23);
-    g_spieler[23] = 0;
-    }
-  else if (!strcmp(topic, Config::SUB_START)) { gameMazeInit(gfx, g_wand, g_kekse, g_spieler); g_running = true; }
+  GameManager::handleControl(topic, payload);
 }
 
+// ===== NTP (PFLICHT vor TLS) ===============================================
 static void syncTime() {
-  configTime(0, 0, "pool.ntp.org", "time.nist.gov");   // UTC
+  configTime(0, 0, "pool.ntp.org", "time.nist.gov");
   Serial.print("[NTP] Zeit synchronisieren");
-  time_t now = time(nullptr);
-  while (now < 1700000000) {
-    delay(200);
-    Serial.print(".");
-    now = time(nullptr);
-  }
-  Serial.printf("\n[NTP] gesetzt: %ld\n", (long)now);
+  while (time(nullptr) < 1700000000) { delay(200); Serial.print("."); }
+  Serial.println(" ok");
 }
 
 void setup() {
@@ -77,7 +66,6 @@ void setup() {
   pinMode(38, OUTPUT);
   digitalWrite(LCD_BL, HIGH);
   digitalWrite(38, HIGH);
-  gfx->fillScreen(0x0000);
 
   imuSetup();
 
@@ -86,10 +74,7 @@ void setup() {
   mqtt::mqttSetMessageHandler(onMqtt);
   mqtt::mqttSetup(mqtt_server, mqtt_port, mqtt_username, mqtt_password, root_ca);
 
-  gfx->setTextColor(0xFFFF);
-  gfx->setTextSize(2);
-  gfx->setCursor(10, 130);
-  gfx->print("Warte auf Start...");
+  GameManager::setup(gfx);   // -> Menue
 }
 
 void loop() {
@@ -97,19 +82,25 @@ void loop() {
   mqtt::mqttLoop();
 
   uint32_t jetzt = millis();
-  static uint32_t letztePhysik = 0;
 
-  if (g_running && jetzt - letztePhysik >= Config::PHYSIK_MS) {
+  // --- Physik + Render mit fester Rate (50 Hz) ---
+  static uint32_t letztePhysik = 0;
+  if (jetzt - letztePhysik >= Config::PHYSIK_MS) {
+    uint32_t dt = jetzt - letztePhysik;
+    if (dt > 100) dt = Config::PHYSIK_MS;   // grosse Luecke (Start/Stall) abfangen
+    letztePhysik = jetzt;
+
     imuReadAccelG(g_ax, g_ay);
-    gameMazeUpdate(g_ax, g_ay, jetzt - letztePhysik);
-    letztePhysik = jetzt;      gameMazeRender();
+    GameManager::update(g_ax, g_ay, dt);
+    GameManager::render();
   }
 
-  if(mqtt::mqttConnected() && jetzt - g_lastStatus >= Config::MQTT_PUBLISH_MS){
+  // --- State + IMU ans Dashboard ---
+  if (mqtt::mqttConnected() && jetzt - g_lastStatus >= Config::MQTT_PUBLISH_MS) {
     g_lastStatus = jetzt;
 
     char buf[160];
-    gameMazeBuildStateJson(buf, sizeof(buf));
+    GameManager::buildStateJson(buf, sizeof(buf));
     mqtt::mqttPublish(Config::PUB_STATUS, buf);
 
     char imu[64];

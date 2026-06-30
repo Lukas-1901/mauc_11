@@ -4,7 +4,7 @@
 #include <WiFiClientSecure.h>
 #include <PubSubClient.h>
 
-namespace mqtt{
+namespace mqtt {
   static WiFiClientSecure s_tlsClient;
   static PubSubClient     s_mqtt(s_tlsClient);
 
@@ -16,11 +16,7 @@ namespace mqtt{
   static unsigned long s_lastReconnectAttempt = 0;
 
   static void onMqttMessage(char* topic, byte* payload, unsigned int length) {
-    String msg;
-    msg.reserve(length);
-    for (unsigned int i = 0; i < length; i++) {
-      msg += (char)payload[i];
-    }
+    String msg(reinterpret_cast<const char*>(payload), length);
 
     if (s_userHandler != nullptr) {
       s_userHandler(topic, msg);
@@ -41,15 +37,10 @@ namespace mqtt{
     if (ok) {
       Serial.println("[MQTT] verbunden.");
       s_mqtt.subscribe(Config::SUB_SPIEL);
-      Serial.printf("[MQTT] subscribed: %s\n", Config::SUB_SPIEL);
       s_mqtt.subscribe(Config::SUB_START);
-      Serial.printf("[MQTT] subscribed: %s\n", Config::SUB_START);
       s_mqtt.subscribe(Config::SUB_SPIELER);
-      Serial.printf("[MQTT] subscribed: %s\n", Config::SUB_SPIELER);
       s_mqtt.subscribe(Config::SUB_KEKSE);
-      Serial.printf("[MQTT] subscribed: %s\n", Config::SUB_KEKSE);
       s_mqtt.subscribe(Config::SUB_WAND);
-      Serial.printf("[MQTT] subscribed: %s\n", Config::SUB_WAND);
     } else {
       Serial.printf("[MQTT] fehlgeschlagen, state=%d\n", s_mqtt.state());
     }

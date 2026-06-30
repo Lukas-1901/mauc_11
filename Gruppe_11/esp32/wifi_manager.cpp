@@ -48,7 +48,7 @@ void WifiBegin() {
 }
 
 void WifiLoop() {
-  if (WiFi.status() == WL_CONNECTED) return;   // alles gut
+  if (WiFi.status() == WL_CONNECTED) return;
 
   uint32_t now = millis();
 
