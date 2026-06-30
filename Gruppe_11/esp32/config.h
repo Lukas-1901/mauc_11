@@ -17,13 +17,13 @@ namespace Config{
 
     #define MQTT_PREFIX "mauc/gruppe11/"
 
-    constexpr const char* PUB_STATE = MQTT_PREFIX "state";
+    constexpr const char* PUB_STATUS = MQTT_PREFIX "status";
     constexpr const char* PUB_IMU = MQTT_PREFIX "imu";
     constexpr const char* PUB_EVENT = MQTT_PREFIX "event";
 
-    constexpr const char* SUB_GAME = MQTT_PREFIX "control/game";
+    constexpr const char* SUB_SPIEL = MQTT_PREFIX "control/spiel";
     constexpr const char* SUB_START = MQTT_PREFIX "control/start";
-    constexpr const char* SUB_PLAYER = MQTT_PREFIX "control/player";
-    constexpr const char* SUB_COOKIES = MQTT_PREFIX "control/cookies";
-    constexpr const char* SUB_WALL = MQTT_PREFIX "control/wall";
+    constexpr const char* SUB_SPIELER = MQTT_PREFIX "control/spieler";
+    constexpr const char* SUB_KEKSE = MQTT_PREFIX "control/kekse";
+    constexpr const char* SUB_WAND = MQTT_PREFIX "control/wand";
 }
