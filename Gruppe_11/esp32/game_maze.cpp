@@ -73,6 +73,7 @@ static uint32_t s_startMs;
 static bool s_finished;
 static bool s_endShown;
 static bool s_firstRender;
+static bool s_forceRedraw;        // erzwingt 1x Neuzeichnen (z.B. nach Keks-Fund)
 static char s_player[24];
 
 // ===========================================================================
@@ -299,6 +300,7 @@ void gameMazeInit(Arduino_GFX* gfx, uint8_t wallThickness,
   s_finished    = false;
   s_endShown    = false;
   s_firstRender = true;
+  s_forceRedraw = false;
   s_startMs     = millis();
 
   char buf[96];
@@ -363,6 +365,7 @@ void gameMazeUpdate(float accX, float accY, uint32_t dtMs) {
       s_cookies[i].active = false;
       s_score++;
       s_cookiesLeft--;
+      s_forceRedraw = true;     // sicherstellen, dass der Keks weggezeichnet wird
       char buf[64];
       snprintf(buf, sizeof(buf),
                "{\"event\":\"cookie\",\"score\":%d,\"left\":%d}", s_score, s_cookiesLeft);
@@ -398,6 +401,15 @@ void gameMazeRender() {
     s_firstRender = false;
     return;
   }
+
+  // FLACKER-SCHUTZ: nur neu zeichnen, wenn sich die ganzzahlige Pixelposition
+  // wirklich aendert (oder ein Keks-Fund ein Neuzeichnen erzwingt). Sonst wuerde
+  // die Kugel bei jedem Frame geloescht+neu gemalt -> sichtbares Blinken im Stand.
+  if (!s_forceRedraw &&
+      (int)s_x == (int)s_prevX && (int)s_y == (int)s_prevY) {
+    return;
+  }
+  s_forceRedraw = false;
 
   // Partielles Update: alte Kugel loeschen, Umgebung wiederherstellen, neu zeichnen.
   // Loeschbox etwas groesser (R+COOKIE_R+1), damit ein gerade gefressener Keks

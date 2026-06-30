@@ -10,7 +10,7 @@ namespace Config{
 
     constexpr float BALL_RAD = 5.0f;
     constexpr float WAND_BREITE_STD = 10.0f;
-    constexpr float IMU_LOWPASS = 0.9f;
+    constexpr float IMU_LOWPASS = 0.5f;
 
     constexpr uint32_t PHYSIK_MS = 20; //50
     constexpr uint32_t MQTT_PUBLISH_MS = 100; //10
