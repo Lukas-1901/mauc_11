@@ -1,0 +1,288 @@
+%!TEX TS-program = pdflatex
+% LaTeX-Vorlage zur Erstellung einer Projektarbeit (Dokumentation eines Projekts)
+% auf Basis der Vorlage für eine
+% Abschlussarbeit in der Fakultät Elektrotechnik, Medien und Informatik an der OTH Amberg-Weiden
+% Diese Vorlage entstand im Rahmen des Kurses "LaTeX fürs Studium"
+% Aktuelle Version: v0.01
+% Stand: 03.06.2023
+%
+% Changelog:
+%
+% v0.01: 03.06.2023, Anpassung der Vorlage für Projektarbeiten (article statt report, keine Titelblätter)
+%
+\documentclass[12pt,oneside]{article}
+\usepackage[T1]{fontenc}		% Einstellungen fuer Umlaute usw.
+\usepackage[utf8x]{inputenc}
+\usepackage[ngerman]{babel}
+
+\usepackage{parskip}			% Einstellungen fuer Absaetze: Abstand statt Einrueckung
+
+\usepackage[a4paper,			% Papierformat A4
+	    left=2.5cm,				% linker Rand
+	    right=2.5cm,			% rechter Rand
+	    top=1.5cm,				% oberer Rand
+	    bottom=1.5cm,			% unter Rand
+	    marginparsep=5mm,		% Abstand der Randnotizen
+	    marginparwidth=10mm, 	% Breite der Randnotizen
+	    headheight=7mm,			% Hoehe der Kopfzeile
+	    headsep=1.2cm,			% Abstand der Kopfzeile
+	    footskip=1.5cm,			% Abstand der Fusszeile
+	    includeheadfoot]{geometry}
+
+\usepackage{fancyhdr}						% Konfiguration von Kopf- und Fusszeilen
+\pagestyle{fancy}							% Seitenstil 'fancy'
+\fancyhf{}									% vorhandene Einstellungen loeschen
+\setlength{\headwidth}{\textwidth}			% Kopf- und Fusszeile so breit wie der Haupttext
+\fancyfoot[R]{\thepage} 					% Festlegung des Seitenstils: Seitenzahlen in der Fusszeile rechts
+\fancyfoot[L]{\IhreArbeit}					% Kapitelnr. und -Bezeichnung in der Fusszeile links
+\fancyhead[L]{\IhreGruppe: \IhrVornameEins\ \IhrNachnameEins\ \& \IhrVornameZwei\ \IhrNachnameZwei}	% Vorname und Name in der Kopfzeile links
+\renewcommand{\sectionmark}[1]{	    		% Definition der Ausgabe des Kapitels
+  \markboth{Abschnitt \thesection. #1}{}}
+\renewcommand{\headrulewidth}{0.5pt}		% Trennlinie zwischen Kopfzeile und Haupttext
+\renewcommand{\footrulewidth}{0.5pt}		% Trennlinie zwischen Haupttext und Fusszeile
+\fancypagestyle{plain}{				     	% Anpassung des Seitenstils 'plain' bei Beginn neuer Kapitel
+  \fancyhf{}								% Vorbelegung loeschen
+  \fancyfoot[C]{\thepage}					% Seitenzeilen in der Fusszeile mittig
+}
+
+%\usepackage{amsmath}			% Pakete fuer den Mathematikmodus
+%\usepackage{amssymb}
+%\usepackage[intlimits]{empheq}
+
+\usepackage[sc]{mathpazo}		% Schriftart Palatino fuer Haupttext und Mathematikmodus
+\usepackage{pifont}				% zusaetzliche Symbole
+
+% \usepackage[format=hang,		% Einstellung fuer Bildunterschriften
+            % font={footnotesize},
+            % labelfont={bf},
+            % margin=1cm,
+            % aboveskip=5pt,
+            % position=bottom]{caption}
+
+\usepackage{graphicx}							% Einbinden von Graphiken
+\usepackage[svgnames,cmyk,table,hyperref]{xcolor} 	% Verwendung von Farben
+
+\definecolor{aoenglish}{rgb}{0.0, 0.5, 0.0}
+\definecolor{battleshipgrey}{rgb}{0.52, 0.52, 0.51}
+\definecolor{cardinal}{rgb}{0.77, 0.12, 0.23}
+
+%\usepackage{tikz}								% Erstellen von Grafiken
+%\usetikzlibrary{positioning,arrows,plotmarks} % TikZ-Bibliotheken
+%\usepackage{pgfplots}                           % Darstellung von Plots, Funktionen, Graphen usw.
+
+%
+% Weitere Pakete
+%
+\usepackage{listings}			% Darstellung von Quellcode
+\lstloadlanguages{[ISO]C++,Java,XML,[LaTeX]TeX}
+\lstset{language=C++,
+	numbers = none,
+	basicstyle = \small\ttfamily,
+	keywordstyle = \color{blue},
+	commentstyle = \color{battleshipgrey},
+	stringstyle = \color{cardinal},
+	columns = flexible,
+	showstringspaces = false
+}
+%
+\usepackage[square,numbers,sort]{natbib} % Zitationsstil mit Attribut lastchecked
+%
+%\usepackage[european, siunitx]{circuitikz}	% Darstellung von Schaltungen
+%
+%\usepackage{enumerate}			% Formatierung nummerierter Listen
+
+% 
+% Persoenliche Angaben
+% 
+\newcommand*{\IhrVornameEins}{Erika}
+\newcommand*{\IhrNachnameEins}{Musterfrau}
+\newcommand*{\IhrVornameZwei}{Thomas}
+\newcommand*{\IhrNachnameZwei}{Mustermann}
+\newcommand*{\IhreGruppe}{Gruppe 03}
+\newcommand*{\IhrStudiengang}{$\in \{$Medieninformatik, Industrie-4.0-Informatik, Künstliche Intelligenz, Ingenieurpädagogik$\}$}
+\newcommand*{\IhreArbeit}{Projektarbeit Mobile \& Ubiquitous Computing SoSe 2026}
+\newcommand*{\IhreSchluesselwoerter}{ESP32S3, MQTT, IoT, Lagesensor, Node-RED, WLAN}
+\newcommand*{\IhrErstpruefer}{Prof. Dr. Ulrich Schäfer}
+
+\usepackage[bookmarks, raiselinks, pageanchor, % PDF-Einstellungen
+            hyperindex, colorlinks,
+            citecolor=black, linkcolor=black,
+            urlcolor=black, filecolor=black,
+            menucolor=black]{hyperref}
+\hypersetup{pdftitle={\IhreArbeit},%
+            pdfauthor={\IhrVornameEins\ \IhrNachnameEins{} \& \IhrVornameZwei\ \IhrNachnameZwei},%
+            pdfsubject={\IhreGruppe},%
+            pdfkeywords={\IhreSchluesselwoerter}}
+
+%
+% Beginn des Textteils
+%
+
+\begin{document}
+\thispagestyle{empty}
+\originalTeX
+\begin{center}
+  \Large
+  Ostbayerische Technische Hochschule Amberg-Weiden\\
+  Fakultät Elektrotechnik, Medien und Informatik\\[.8cm]
+  \large \IhrErstpruefer\\[.8cm]
+  \Large \IhreArbeit\\[.8cm]
+  \large \IhreGruppe: \IhrVornameEins\ \IhrNachnameEins\ \&
+  \IhrVornameZwei\ \IhrNachnameZwei\\[.8cm]
+  \large Studiengang \IhrStudiengang\\[.8cm]
+  \today\\[2.5cm]
+\end{center}
+
+
+\tableofcontents
+
+\clearpage
+
+%
+% Einleitung
+%
+
+\section{Einleitung}
+
+Hier starten Sie mit Ihrer Beschreibung.
+
+Bitte passen Sie in der \LaTeX-Datei \texttt{projektarbeit.tex} am Anfang folgende 
+Zeilen an:
+  
+\begin{lstlisting}{language=[LaTeX]TeX}
+\newcommand*{\IhrVornameEins}{Erika}
+\newcommand*{\IhrNachnameEins}{Musterfrau}
+\newcommand*{\IhrVornameZwei}{Thomas}
+\newcommand*{\IhrNachnameZwei}{Mustermann}
+\newcommand*{\IhreGruppe}{Gruppe 01}
+\newcommand*{\IhrStudiengang}{Medieninformatik}
+\newcommand*{\IhreArbeit}{Projektarbeit Mobile \& Ubiquitous Computing}
+\newcommand*{\IhreSchluesselwoerter}{...}
+\end{lstlisting}
+  
+Diese Literaturquellen sollten durch passende ersetzt werden: \cite{Breymann:2020,jabref,Schaefer_Spurk:2010,ct_LaTeX:2005,zotero,ArduinoLanguageReference,wavesharedoku}.
+
+Sie können die Dokumentstruktur ändern. Dies ist lediglich ein Vorschlag.
+
+Bei \href{https://www.heise.de/download/blog/Einfuehrung-in-LaTeX-3599742}{Heise (dies ist ein link)} finden Sie 
+eine Zusammenstellung, wie Sie eine \LaTeX-Entwicklungsumgebung installieren, falls Sie nicht
+\href{https://www.overleaf.com}{Overleaf} benutzen wollen.
+
+%
+% Projektplanung und Vorgehen
+%
+
+\section{Projektplanung und Vorgehen}
+
+%
+% Implementierung
+%
+
+Hier sollten Sie auch das Protkoll (MQTT topics und Datenformat) für die Kommunikation zwischen ESP32 und PC/Laptop sauber dokumentieren.
+
+
+Hier folgt ein Beispiel für ein Bild in Abbildung~\ref{fig:waveshare} auf Seite \pageref{fig:waveshare}.
+
+
+  
+\begin{figure}[h]
+	\centering
+	\includegraphics[width=0.3\linewidth]{vorderseite}
+	\caption[Waveshare ESP32-S3]{Waveshare ESP32-S3 1.69inch Touch Display Development Board, 240×280 Pixels (Quelle: waveshare.com)}
+	\label{fig:waveshare}
+\end{figure}
+  \section{Implementierung}
+  
+  
+  
+Ihr Code muss an dieser Stelle nicht vollständig wiedergegeben werden ($\rightarrow$ Anhang), aber evtl. interessante Ausschnitte. 
+
+Doku s. \url{https://ctan.org/pkg/listings}
+
+Mit \verb|\lstinputlisting[lastline=14,language=C++]{sketch.ino}| können auch (Ausschnitte von) 
+externen Quellcode-Dateien eingebunden werden, so dass \emph{copy \& paste} von Quellcode
+überflüssig wird.
+  
+Es folgt ein C++-Codebeispiel (Hinweis: Umlaute ins Listings funktionieren leider nicht so gut):
+\begin{lstlisting}[language=C++]
+void setup() {
+  Serial.begin(115200);
+  // gibt etwas aus ueber die serielle Leitung:
+  Serial.println("Hallo ESP");
+}
+\end{lstlisting}
+
+
+Java geht auch, hier sieht man gleich die Javadoc-Syntax:
+\begin{lstlisting}[language=Java]
+/**
+* Ein Hallo-Welt-Programm in Java.
+* Dies ist ein Javadoc-Kommentar.
+*
+* @author Ulrich Schaefer
+* @version 1.0
+*/
+public class HalloWelt {
+/**
+* Main-Methode
+*
+* @param args Kommandozeilenparameter
+* @return Rueckgabewert
+*/
+  public static int main(String[] args) {
+    System.out.println("Hallo Welt!");
+  }
+} // Ende der Java-Klasse HalloWelt
+\end{lstlisting}
+
+
+Und zu guter Letzt noch ein XML-Beispiel: 
+\begin{lstlisting}[language=XML]
+<spitze>
+  <!-- Kommentar in XML -->
+  <klammer wert="auf"/>
+</spitze>
+\end{lstlisting}
+
+
+%
+% Probleme und Diskussion
+%
+
+\section{Probleme und Diskussion}
+
+Sie können die Überschrift natürlich umbenennen, falls es keine Probleme gibt :-).
+
+%
+% Zusammenfassung und Ausblick
+%
+
+\section{Zusammenfassung und Ausblick}
+
+Die Literatur (für den nächsten Abschnitt) tragen Sie in die Datei \texttt{quellen.bib} ein. Diese Datei hat die BiB\TeX-Syntax (vgl. \url{https://ctan.org/pkg/bibtex}; BiB\TeX\ ist bei \href{https://www.heise.de/download/product/texstudio-62955}{\TeX studio} bzw. \href{https://www.overleaf.com}{Overleaf} dabei).
+
+Zur Literaturverwaltung verwenden Sie am besten Zotero \cite{zotero} oder JabRef \cite{jabref}. 
+
+Bei meiner \LaTeX-Installation ist der \texttt{natdin}-Style leider etwas buggy (bei \texttt{@book} wird die DOI-URL doppelt generiert, dafür fehlt sie bei \texttt{@inproceedings}). Allerdings funktioniert das
+Attribut \texttt{lastchecked} für Webseiten (Publikationstyp \texttt{@misc}).
+
+
+\appendix
+
+\section{Code}
+
+%\clearpage % - bei Bedarf diesen Seitenumbruch entfernen
+
+%
+% Literatur 
+%
+
+\phantomsection
+\addcontentsline{toc}{section}{Literatur}
+\bibliographystyle{natdin}
+\bibliography{quellen}
+  
+
+%\include{anhang} % zum Beispiel hier die ChatGPT-Chatprotokolle einbinden (oder als extra-Datei)
+
+\end{document}
