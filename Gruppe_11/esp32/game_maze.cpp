@@ -3,40 +3,56 @@
 #include "mqtt_manager.h"
 #include <math.h>
 
-static const uint16_t COL_BG     = BLACK;
-static const uint16_t COL_WALL   = WHITE;
-static const uint16_t COL_BALL   = RED;
-static const uint16_t COL_COOKIE = YELLOW;
-static const uint16_t COL_TEXT   = WHITE;
+// ===========================================================================
+//  KONSTANTEN  (alle Stellschrauben hier oben -- keine Magic Numbers im Code)
+// ===========================================================================
 
-static const float ACC_GAIN = 800.0f;
-static const float FRICTION = 0.92f;
-static const float ACC_LPF  = Config::IMU_LOWPASS;
+// --- Farben als rohe RGB565-Werte (unabhaengig von Makro-Namen der GFX-Lib;
+//     je nach Version heissen die Makros BLACK oder RGB565_BLACK -> Hex ist sicher) ---
+static const uint16_t COL_BG     = 0x0000; // schwarz
+static const uint16_t COL_WALL   = 0xFFFF; // weiss
+static const uint16_t COL_BALL   = 0xF800; // rot
+static const uint16_t COL_COOKIE = 0xFFE0; // gelb
+static const uint16_t COL_TEXT   = 0xFFFF; // weiss
 
+// --- Physik-Tuning (fuer die Ausarbeitung: das sind die wichtigsten Parameter) ---
+static const float ACC_GAIN = 800.0f;            // px/s^2 pro g (Neigung -> Beschleunigung)
+static const float FRICTION = 0.92f;             // Reibung pro Frame, 0..1 (sonst laeuft Kugel weg)
+static const float ACC_LPF  = Config::IMU_LOWPASS; // EMA-Faktor (0.9 = starke Glaettung)
+
+// --- Achsen an die Display-Ausrichtung anpassen (EMPIRISCH verifizieren!) ---
+// Board kippen und pruefen, ob die Kugel "bergab" rollt. Falls eine Achse
+// verkehrt herum laeuft: Vorzeichen flippen. Falls links/rechts vertauscht: SWAP.
 static const float SIGN_X  = 1.0f;
 static const float SIGN_Y  = 1.0f;
 static const bool  SWAP_XY = false;
 
-static const int   R             = (int)Config::BALL_RAD;
-static const int   COOKIE_R      = 3;
-static const int   CORRIDOR_EXTRA= 4;
-static const float MAX_SUBSTEP   = (float)R;
+// --- Geometrie ---
+static const int   R             = (int)Config::BALL_RAD; // Kugelradius
+static const int   COOKIE_R      = 3;                     // Keks-Radius
+static const int   CORRIDOR_EXTRA= 4;                     // Luft zus. zum Kugeldurchmesser
+static const float MAX_SUBSTEP   = (float)R;              // Anti-Tunneling: max. Schritt/Subschritt
 
+// --- Statische Felder dimensionieren (kein dynamischer Speicher) ---
+// Kleinste Wand (2px) -> kleinste Zelle -> groesstes Grid. Mit etwas Reserve:
 static const int MAX_COLS    = 18;
 static const int MAX_ROWS    = 22;
 static const int MAX_COOKIES = 64;
 
+// --- Wand-Bits pro Zelle ---
+static const uint8_t WALL_N = 0x01;  // oben
+static const uint8_t WALL_E = 0x02;  // rechts
+static const uint8_t WALL_S = 0x04;  // unten
+static const uint8_t WALL_W = 0x08;  // links
+static const uint8_t VISITED= 0x10;  // Hilfsbit fuer DFS
 
-static const uint8_t WALL_N = 0x01;
-static const uint8_t WALL_E = 0x02;
-static const uint8_t WALL_S = 0x04;
-static const uint8_t WALL_W = 0x08;
-static const uint8_t VISITED= 0x10;
-
+// ===========================================================================
+//  ZUSTAND (static = nur in dieser Datei sichtbar)
+// ===========================================================================
 static Arduino_GFX* s_gfx = nullptr;
 
 static uint8_t  s_maze[MAX_ROWS][MAX_COLS];     // Wand-Bits je Zelle
-static uint16_t s_stack[MAX_ROWS * MAX_COLS];
+static uint16_t s_stack[MAX_ROWS * MAX_COLS];   // expliziter DFS-Stack
 
 static int s_cols, s_rows;        // Grid-Groesse
 static int s_cell, s_wall;        // Zellenpitch / Wandstaerke in px
@@ -68,7 +84,7 @@ static inline int cookieCenterX(int cx) { return cellPX(cx) + s_cell / 2; }
 static inline int cookieCenterY(int cy) { return cellPY(cy) + s_cell / 2; }
 
 static void publishEvent(const char* json) {
-  mqttPublish(Config::PUB_EVENT, json);
+  mqtt::mqttPublish(Config::PUB_EVENT, json);
 }
 
 // Kreis (Mittelpunkt cx/cy, Radius R) gegen achsenparalleles Rechteck.
@@ -292,6 +308,7 @@ void gameMazeInit(Arduino_GFX* gfx, uint8_t wallThickness,
 }
 
 void gameMazeUpdate(float accX, float accY, uint32_t dtMs) {
+  if (!s_gfx) return;                 // noch kein Spiel gestartet -> nichts tun
   if (s_finished || dtMs == 0) return;
   float dt = dtMs / 1000.0f;
 
@@ -365,6 +382,8 @@ void gameMazeUpdate(float accX, float accY, uint32_t dtMs) {
 }
 
 void gameMazeRender() {
+  if (!s_gfx) return;                 // noch kein Spiel gestartet -> nicht zeichnen
+
   // Endbildschirm einmalig zeichnen
   if (s_finished) {
     if (!s_endShown) { showEndScreen(); s_endShown = true; }

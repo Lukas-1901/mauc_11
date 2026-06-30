@@ -40,16 +40,16 @@ namespace mqtt{
     bool ok = s_mqtt.connect(clientId.c_str(), s_user, s_pass);
     if (ok) {
       Serial.println("[MQTT] verbunden.");
-      s_mqtt.subscribe(SUB_SPIEL);
-      Serial.printf("[MQTT] subscribed: %s\n", SUB_SPIEL);
-      s_mqtt.subscribe(SUB_START);
-      Serial.printf("[MQTT] subscribed: %s\n", SUB_START);
-      s_mqtt.subscribe(SUB_SPIELER);
-      Serial.printf("[MQTT] subscribed: %s\n", SUB_SPIELER);
-      s_mqtt.subscribe(SUB_KEKSE);
-      Serial.printf("[MQTT] subscribed: %s\n", SUB_KEKSE);
-      s_mqtt.subscribe(SUB_WAND);
-      Serial.printf("[MQTT] subscribed: %s\n", SUB_WAND);
+      s_mqtt.subscribe(Config::SUB_SPIEL);
+      Serial.printf("[MQTT] subscribed: %s\n", Config::SUB_SPIEL);
+      s_mqtt.subscribe(Config::SUB_START);
+      Serial.printf("[MQTT] subscribed: %s\n", Config::SUB_START);
+      s_mqtt.subscribe(Config::SUB_SPIELER);
+      Serial.printf("[MQTT] subscribed: %s\n", Config::SUB_SPIELER);
+      s_mqtt.subscribe(Config::SUB_KEKSE);
+      Serial.printf("[MQTT] subscribed: %s\n", Config::SUB_KEKSE);
+      s_mqtt.subscribe(Config::SUB_WAND);
+      Serial.printf("[MQTT] subscribed: %s\n", Config::SUB_WAND);
     } else {
       Serial.printf("[MQTT] fehlgeschlagen, state=%d\n", s_mqtt.state());
     }
